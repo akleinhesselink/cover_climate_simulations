@@ -31,3 +31,4 @@ vignettes/*.pdf
 *.odt
 *.docx
 *.xlsx
+.Rproj.user
