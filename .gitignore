@@ -1,0 +1,27 @@
+# folders
+./output/*
+./figs/*
+
+# History files
+.Rhistory
+.Rapp.history
+
+# Example code in package build process
+*-Ex.R
+
+# RStudio files
+.Rproj.user/
+
+# produced vignettes
+vignettes/*.html
+vignettes/*.pdf
+
+# figures 
+*.pdf
+*.jpeg
+*.png
+
+# docs 
+*.odt
+*.docx
+*.xlsx
