@@ -30,3 +30,8 @@ sim_time_series <- function(popDF, EV, time ){
   }
   return( popDF)
 }
+
+make_pop_df <- function(pop_series) { 
+  pop_df = data.frame(year = row.names(pop_series), pop_series, popLag = c(NA, pop_series$population[ -length(pop_series$population)]))
+  return( pop_df )
+}
