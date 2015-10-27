@@ -5,7 +5,8 @@
 # system
 .DS_Store
 ._.DS_Store
-
+._*
+*~
 
 # History files
 .Rhistory
