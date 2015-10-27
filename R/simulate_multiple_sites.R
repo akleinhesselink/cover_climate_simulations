@@ -1,11 +1,10 @@
 rm(list = ls() ) 
 
-# simulate 2 sites 
 source('R/functions.R')
 
 #### parameters 
 
-obsTime = c(10, 10)
+obsTime = runif( 4, min = 2, max = 10 ) 
 burnTime = 100 
 time = obsTime + burnTime
 pop_init = 100  
@@ -27,9 +26,9 @@ results <- lapply( parms_list,  run_simulation )
 results_df <- do.call( rbind, results ) 
 
 ##### Plot time series 
-ggplot(subset(results_df, year > burnTime), aes(x = year, y = population, group = 1 ) ) + 
+ggplot(results_df, aes(x = as.numeric(year), y = population, color = site ) ) + 
   geom_point() + 
   geom_line() + 
-  facet_grid(. ~ site) + 
-  scale_x_continuous(breaks = c(burnTime:time))
-
+  facet_grid(site ~ .) +
+  scale_x_continuous( breaks = c(unique(results_df$year))) 
+  

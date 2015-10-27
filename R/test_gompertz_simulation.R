@@ -28,17 +28,13 @@ parms_list <- split(parms_df, f = 1:nrow(parms_df))
 results <- run_simulation( parms_list[[1]] )
 
 ##### Plot time series 
-ggplot(subset(results, year > burnTime), aes(x = year, y = population, group = 1 ) ) + geom_point() + geom_line() + scale_x_continuous(breaks = c(burnTime:time))
-
-
 par(mfrow = c(1,1))
-plot(results$clim2, type = 'l', ylim = c(0, max(results$population, na.rm=TRUE)), xlim = c(100,time))
+plot(results$clim2, type = 'l', ylim = c(0, max(results$population, na.rm=TRUE)))
 points(results$population, type = 'l', col= 'red')
 points(results$clim1, type = 'l', col = 'blue')
 
 ##### simple linear model 
 ##### estimate parameters 
-results = results[ -c(1:burnTime), ] #### drop burn in time time steps to remove transient effects
 
 m1 = lm( population ~ 0 + popLag + clim2 + clim1, data = results)
 summary(m1)

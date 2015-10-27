@@ -71,6 +71,7 @@ run_simulation <- function( parms ) {
     
     pop_DF$site = site 
     
+    pop_DF <- pop_DF[ -c(1:burnTime), ]
     return(pop_DF)
   })
 }
