@@ -15,7 +15,7 @@ logGompertz = function( X, A, B, ER, C2, C1, U2, U1) {
 }
 
 
-sim_time_series <- function(popDF, EV, time ){ 
+sim_time_series <- function(popDF, EV, time, ... ){ 
   
   for( i in 2:time) { 
     E = rnorm(1, 0, EV)
@@ -32,6 +32,46 @@ sim_time_series <- function(popDF, EV, time ){
 }
 
 make_pop_df <- function(pop_series) { 
-  pop_df = data.frame(year = row.names(pop_series), pop_series, popLag = c(NA, pop_series$population[ -length(pop_series$population)]))
+  pop_df = data.frame(year = as.numeric(row.names(pop_series)), pop_series, popLag = c(NA, pop_series$population[ -length(pop_series$population)]))
   return( pop_df )
 }
+
+run_simulation <- function( parms ) { 
+
+  with(parms, { 
+    
+    pop = rep(NA, time + 1)
+
+    ##### population data  
+    initialize_population <- function(pop, pop_init ){ 
+      pop[1] = pop_init
+      N = log(pop)
+      return(N)
+    }
+    
+    N <- initialize_population( pop, pop_init)
+    
+    # simulate climate 
+    sim_climate <- function( time, mean_clim, var_clim){ 
+      clim2 = rnorm(time, mean_clim, var_clim) 
+      clim1 = c(NA, clim2[ -length(clim2) ] )
+      climate <- cbind(clim2 = c(clim2, NA), clim1 = c(clim1, NA))
+      return(climate)
+    }
+    
+    climate <- sim_climate ( time, mean_clim, var_clim)
+    
+    ##### data frame for analysis 
+    empty = data.frame( population = N, climate) 
+    
+    ##### Simulate data 
+    pop_series <- sim_time_series(empty, EV, time, A, B, C2, C1 )
+    
+    pop_DF <- make_pop_df( pop_series = pop_series)
+    
+    pop_DF$site = site 
+    
+    return(pop_DF)
+  })
+}
+

@@ -1,57 +1,48 @@
 rm(list = ls() ) 
+#### Gompertz Population Dynamics single species 
 
 source('R/functions.R')
-
-#### Gompertz Population Dynamics single species 
 
 #### parameters 
 obsTime = 10
 burnTime = 100
 time = obsTime + burnTime
-
-pop = rep(NA, time + 1)
+pop_init = 100 
 B = 0.9
 A = 0
 C2 = 0.5 # climate effect second year of transition 
 C1 = 2 # climate effect first year of transition  
-
+mean_clim <- 2 
+var_clim <- 1
 EV = 1
 
-##### population data  
-N = pop
-pop[1] = 100
-N[1] = log(pop[1])
+####
 
-# simulate climate 
-clim2 = rnorm(time, 2, 1) 
-clim1 = c(NA, clim2[ -length(clim2) ] )
-climate <- cbind(clim2 = c(clim2, NA), clim1 = c(clim1, NA))
+nsites = max( sapply(list(burnTime, time, pop_init), function (x) {  length ( x )  } ) ) 
 
-##### data frame for analysis 
-empty = data.frame( population = N, climate) 
+parms_df <- data.frame( site = factor(1:nsites), burnTime = burnTime, time = time, pop_init = pop_init, B = B, A = A, C2 = C2, C1 = C1, EV = EV )
 
-##### Simulate data 
-pop_series <- sim_time_series(empty, EV, time )
+parms_list <- split(parms_df, f = 1:nrow(parms_df))
 
-popDF <- make_pop_df( pop_series = pop_series)
+#### 
+results <- run_simulation( parms_list[[1]] )
+
 ##### Plot time series 
-ggplot(subset(popDF, year > burnTime), aes(x = year, y = population, group = 1 ) ) + geom_point() + geom_line() + scale_x_continuous(breaks = c(burnTime:time))
+ggplot(subset(results, year > burnTime), aes(x = year, y = population, group = 1 ) ) + geom_point() + geom_line() + scale_x_continuous(breaks = c(burnTime:time))
 
 
 par(mfrow = c(1,1))
-plot(popDF$clim2, type = 'l', ylim = c(0, max(popDF$population, na.rm=TRUE)), xlim = c(100,time))
-points(popDF$population, type = 'l', col= 'red')
-points(popDF$clim1, type = 'l', col = 'blue')
-
-
+plot(results$clim2, type = 'l', ylim = c(0, max(results$population, na.rm=TRUE)), xlim = c(100,time))
+points(results$population, type = 'l', col= 'red')
+points(results$clim1, type = 'l', col = 'blue')
 
 ##### simple linear model 
 ##### estimate parameters 
-popDF = popDF[ -c(1:burnTime), ] #### drop burn in time time steps to remove transient effects
+results = results[ -c(1:burnTime), ] #### drop burn in time time steps to remove transient effects
 
-m1 = lm( population ~ 0 + popLag + clim2 + clim1, data = popDF)
+m1 = lm( population ~ 0 + popLag + clim2 + clim1, data = results)
 summary(m1)
 
-m2 = lm( population ~ 0 + popLag + clim1, data = popDF)
+m2 = lm( population ~ 0 + popLag + clim1, data = results)
 summary(m2)
 
