@@ -8,7 +8,7 @@ obsTime = 10
 burnTime = 100
 time = obsTime + burnTime
 pop_init = 100 
-B = 0.9
+B = 0.2
 A = 0
 C2 = 0.5 # climate effect second year of transition 
 C1 = 2 # climate effect first year of transition  
@@ -26,6 +26,7 @@ parms_list <- split(parms_df, f = 1:nrow(parms_df))
 
 #### 
 results <- run_simulation( parms_list[[1]] )
+results
 
 ##### Plot time series 
 par(mfrow = c(1,1))
@@ -36,9 +37,7 @@ points(results$clim1, type = 'l', col = 'blue')
 ##### simple linear model 
 ##### estimate parameters 
 
-m1 = lm( population ~ 0 + popLag + clim2 + clim1, data = results)
-summary(m1)
 
-m2 = lm( population ~ 0 + popLag + clim1, data = results)
-summary(m2)
+m1 = lm( population ~  popLag + clim2 + clim1, data = results)
+summary(m1)
 

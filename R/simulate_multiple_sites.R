@@ -1,18 +1,23 @@
 rm(list = ls() ) 
 
+library(ggplot2)
+library(lme4)
+
 source('R/functions.R')
 
 #### parameters 
 
-obsTime = runif( 4, min = 2, max = 10 ) 
+obsTime = runif( 100, min = 2, max = 3 ) 
 burnTime = 100 
 time = obsTime + burnTime
 pop_init = 100  
-B = 0.9
-A = 0
-C2 = 0.5 # climate effect second year of transition 
-C1 = 2 # climate effect first year of transition  
-EV = 1
+B = 0.8
+A = 0.4
+C2 = -0.01 # climate effect second year of transition 
+C1 = 0.02 # climate effect first year of transition  
+EV = 0.1
+mean_clim <- 2 
+var_clim <- 1
 
 nsites = max( sapply(list(burnTime, time, pop_init), function (x) {  length ( x )  } ) ) 
 
@@ -29,6 +34,13 @@ results_df <- do.call( rbind, results )
 ggplot(results_df, aes(x = as.numeric(year), y = population, color = site ) ) + 
   geom_point() + 
   geom_line() + 
-  facet_grid(site ~ .) +
   scale_x_continuous( breaks = c(unique(results_df$year))) 
-  
+
+ggplot( results_df, aes(x = popLag, y = population, color = site) ) + 
+  geom_point() + geom_line()
+
+head( results_df ) 
+
+m1 <- lmer(data = results_df, population ~ popLag + clim2 + clim1 + (1|site ))  
+
+summary(m1)

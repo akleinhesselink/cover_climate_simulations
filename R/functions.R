@@ -1,3 +1,5 @@
+
+
 logGompertz = function( X, A, B, ER, C2, C1, U2, U1) { 
   #### X is species current log abundance 
   #### U[1,2] is external environment [at first and second year of transition] 
@@ -36,6 +38,21 @@ make_pop_df <- function(pop_series) {
   return( pop_df )
 }
 
+initialize_population <- function(pop, pop_init ){ 
+  pop[1] = pop_init
+  N = log(pop)
+  return(N)
+}
+
+# simulate climate 
+sim_climate <- function( time, mean_clim, var_clim){ 
+  clim2 = rnorm(time, mean_clim, var_clim) 
+  clim1 = c(NA, clim2[ -length(clim2) ] )
+  climate <- cbind(clim2 = c(clim2, NA), clim1 = c(clim1, NA))
+  return(climate)
+}
+
+
 run_simulation <- function( parms ) { 
 
   with(parms, { 
@@ -43,21 +60,9 @@ run_simulation <- function( parms ) {
     pop = rep(NA, time + 1)
 
     ##### population data  
-    initialize_population <- function(pop, pop_init ){ 
-      pop[1] = pop_init
-      N = log(pop)
-      return(N)
-    }
     
     N <- initialize_population( pop, pop_init)
     
-    # simulate climate 
-    sim_climate <- function( time, mean_clim, var_clim){ 
-      clim2 = rnorm(time, mean_clim, var_clim) 
-      clim1 = c(NA, clim2[ -length(clim2) ] )
-      climate <- cbind(clim2 = c(clim2, NA), clim1 = c(clim1, NA))
-      return(climate)
-    }
     
     climate <- sim_climate ( time, mean_clim, var_clim)
     
