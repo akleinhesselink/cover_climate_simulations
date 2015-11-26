@@ -11,15 +11,13 @@ obsTime = rep(10, nsites)
 burnTime = 100
 time = obsTime + burnTime
 pop_init = 100 
-B = rnorm(n = 1, mean = 0.8, sd = 0.1)
-A = 0.2
+B = rbeta(n = nsites, shape1 = 10, shape2 = 2)
+A = rnorm(n = nsites, mean =  0.15, sd = 0.01)
 C2 = 0.1 # climate effect second year of transition 
 C1 = 0.1 # climate effect first year of transition  
 mean_clim <- 0 
 var_clim <- 1
-EV = 1
-
-0.05*2
+EV = 0.5
 
 ####
 
@@ -30,11 +28,14 @@ parms_df
 
 parms_list <- split(parms_df, f = 1:nrow(parms_df))
 parms_list
-rm(B)
+rm( B, A)
 #### 
-run_simulation(parms_list[[1]])
+do.call( run_simulation, args = as.list ( parms_list[[1]]))
 
-results <- lapply(parms_list, FUN = run_simulation) 
+
+
+
+results <- lapply(parms_list, FUN = function(x) { do.call( run_simulation, args = as.list(x)) } ) 
 
 results <- do.call(rbind, results)
 results <- results[ !is.na(results$population), ]

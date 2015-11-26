@@ -17,7 +17,7 @@ logGompertz = function( X, A, B, ER, C2, C1, U2, U1) {
 }
 
 
-sim_time_series <- function(popDF, EV, time, ... ){ 
+sim_time_series <- function(popDF, EV, time, X, A, B, C2, C1 ){ 
   
   for( i in 2:time) { 
     E = rnorm(1, 0, EV)
@@ -33,19 +33,19 @@ sim_time_series <- function(popDF, EV, time, ... ){
   return( popDF)
 }
 
-make_pop_df <- function(pop_series) { 
+make_pop_df <- function(pop_series ) { 
   pop_df = data.frame(year = as.numeric(row.names(pop_series)), pop_series, popLag = c(NA, pop_series$population[ -length(pop_series$population)]))
   return( pop_df )
 }
 
-initialize_population <- function(pop, pop_init ){ 
+initialize_population <- function(pop, pop_init, ... ){ 
   pop[1] = pop_init
   N = log(pop)
   return(N)
 }
 
 # simulate climate 
-sim_climate <- function( time, mean_clim, var_clim){ 
+sim_climate <- function( time, mean_clim, var_clim, ... ){ 
   clim2 = rnorm(time, mean_clim, var_clim) 
   clim1 = c(NA, clim2[ -length(clim2) ] )
   climate <- cbind(clim2 = c(clim2, NA), clim1 = c(clim1, NA))
@@ -53,31 +53,24 @@ sim_climate <- function( time, mean_clim, var_clim){
 }
 
 
-run_simulation <- function( parms ) { 
+run_simulation <- function( site, burnTime, time, pop_init, A, B, C2, C1, EV, ... ) { 
+  pop = rep(NA, time + 1)
 
-  with(parms, { 
+  ##### population data  
+  N <- initialize_population( pop, pop_init )
+  climate <- sim_climate ( time, mean_clim, var_clim )
     
-    pop = rep(NA, time + 1)
-
-    ##### population data  
+  ##### data frame for analysis 
+  empty = data.frame( population = N, climate) 
     
-    N <- initialize_population( pop, pop_init)
+  ##### Simulate data 
+  pop_series <- sim_time_series(empty, EV = EV, time = time, A = A, B = B, C2 = C2, C1 = C1)
     
+  pop_DF <- make_pop_df( pop_series = pop_series, ... )
     
-    climate <- sim_climate ( time, mean_clim, var_clim)
+  pop_DF$site = site 
     
-    ##### data frame for analysis 
-    empty = data.frame( population = N, climate) 
-    
-    ##### Simulate data 
-    pop_series <- sim_time_series(empty, EV, time, A, B, C2, C1 )
-    
-    pop_DF <- make_pop_df( pop_series = pop_series)
-    
-    pop_DF$site = site 
-    
-    pop_DF <- pop_DF[ -c(1:burnTime), ]
-    return(pop_DF)
-  })
+  pop_DF <- pop_DF[ -c(1:burnTime), ]
+  return(pop_DF)
 }
 
