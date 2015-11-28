@@ -6,18 +6,24 @@ source('R/functions.R')
 
 #### parameters 
 
-nsites = 8
-obsTime = rep(10, nsites)
+ndatasets = 8
+nsites = 600
+obsTime = runif( n = nsites, min = 3, max = 15)
 burnTime = 100
 time = obsTime + burnTime
 pop_init = 100 
-B = rbeta(n = nsites, shape1 = 10, shape2 = 2)
-A = rnorm(n = nsites, mean =  0.15, sd = 0.01)
-C2 = 0.1 # climate effect second year of transition 
-C1 = 0.1 # climate effect first year of transition  
+B = rnorm(n = nsites, 0.89, sd =  0.005)
+A = runif(n = nsites, min = 0.2, max = 0.2)
+C2 = -0.1 # climate effect second year of transition 
+C1 = 0.2 # climate effect first year of transition  
 mean_clim <- 0 
-var_clim <- 1
-EV = 0.5
+var_clim <- 0.2
+EV <- 0.2
+
+m_B <- mean( B)
+m_A <- mean( A)
+
+hist( EV)
 
 ####
 
@@ -32,9 +38,6 @@ rm( B, A)
 #### 
 do.call( run_simulation, args = as.list ( parms_list[[1]]))
 
-
-
-
 results <- lapply(parms_list, FUN = function(x) { do.call( run_simulation, args = as.list(x)) } ) 
 
 results <- do.call(rbind, results)
@@ -46,7 +49,9 @@ dat_list = list(
                      y_last = results$popLag, 
                      plot = as.numeric(results$site),
                      nplot = nlevels(factor(results$site)), 
-                     N = nrow(results)
+                     N = nrow(results), 
+                     clim1 = results$clim1,
+                     clim2 = results$clim2
                      )
 
 dump(list = "dat_list", file = 'temp/sim_data.R' )
@@ -54,15 +59,30 @@ dump(list = "dat_list", file = 'temp/sim_data.R' )
 ##### Plot time series 
 
 library(ggplot2)
-ggplot( data = results, aes( x = as.integer(year), y = population, color = site)) + 
-  facet_wrap(~ site, ncol = 1  ) +
+log_plot <- ggplot( data = results, aes( x = as.integer(year), y = population, color = site)) + 
+  facet_wrap(~ site, ncol = 2  ) +
   scale_x_continuous() + 
   geom_point() + 
   geom_path() 
 
+plot <- log_plot
+
+plot$data$population <- exp(log_plot$data$population)
+plot$data$site
+
+plot %+% subset( plot$data, site %in% c(1:10) ) 
+
+
 ##### simple linear model 
 ##### estimate parameters 
 
-m1 = lmer( population ~  popLag + (popLag|site), data = results)
+m1 = lmer( population ~  popLag + (popLag|site) + clim1 + clim2, data = results)
 summary(m1)
 
+m2 = lmer( population ~ popLag + (popLag-1|site) + clim1 + clim2, data = results)
+summary(m2)
+
+m_A
+m_B
+C1
+C2

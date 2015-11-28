@@ -12,7 +12,7 @@ logGompertz = function( X, A, B, ER, C2, C1, U2, U1) {
   X = as.vector(X, mode= 'numeric')
   U1 = as.vector(U1)
   U2 = as.vector(U2)
-  X2 = A + B%*%X + C2%*%U2 + C1%*%U1 + ER   
+  X2 = A + B%*%X + C2%*%U2 + C1%*%U1 + ER 
   return(X2)
 }
 
