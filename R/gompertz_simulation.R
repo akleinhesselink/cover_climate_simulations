@@ -38,7 +38,7 @@ make_pop_df <- function(time, N, U, sigma_o ) {
 initialize_population <- function(pop_init, time){ 
   
   pop = rep(NA, time)
-  pop[1] = pop_init
+  pop[1:nlags] = pop_init
   N = log(pop)
   
   return(N)
@@ -46,20 +46,20 @@ initialize_population <- function(pop_init, time){
 }
 
 
-sim_climate <- function( time, var_clim, nlags, ... ) { 
+sim_climate <- function( time, var_clim, nlags ) { 
   
   U <- data.frame( V1 = rnorm( time + 1, 0, var_clim ) )
 
   for( i in 1:nlags) { 
-    U[, i+1] <- lag(U$V1, i) 
+    U[, i+1] <- lag(U[,1], i) 
   }
   
   return( U ) 
 } 
 
-sim_time_series <- function(N, sigma_p, time, A, B, C, U){ 
+sim_time_series <- function(N, sigma_p, time, A, B, C, U, nlags){ 
   
-  for( i in 2:time) { 
+  for( i in (nlags + 1):time) { 
     E = rnorm(1, 0, sigma_p)
     N[i] = logGompertz(X = N[i-1], 
                        A = A, 
@@ -78,8 +78,8 @@ run_simulation <- function( burnTime = burnTime, time = time, pop_init = pop_ini
   U <- sim_climate ( time, var_clim, nlags )
   
   ##### Simulate data 
-  N <- sim_time_series(N = N, sigma_p = sigma_p, time = time, A = A, B = B, C = C, U = U)
-
+  N <- sim_time_series(N = N, sigma_p = sigma_p, time = time, A = A, B = B, C = C, U = U, nlags = nlags)
+  
   pop_DF <- make_pop_df(time = time, N = N, U = U, sigma_o = sigma_o)
   
   pop_DF <- pop_DF[ -c(1:burnTime), ]
@@ -87,19 +87,19 @@ run_simulation <- function( burnTime = burnTime, time = time, pop_init = pop_ini
 }
 
 
-model_formula <- function( lags ) { 
+model_formula <- function( nlags ) { 
   
   f <- list()
-  f[[1]] <-  as.formula( paste('N ~ N_lag +', paste0('U.V', 1:2, collapse = ' + '))) 
-  f[[2]] <-  as.formula( paste('N_obs ~ N_obs_lag +', paste0('U.V', 1:2, collapse = ' + ')))
+  f[[1]] <-  as.formula( paste('N ~ N_lag +', paste0('U.V', 1:(nlags+1), collapse = ' + '))) 
+  f[[2]] <-  as.formula( paste('N_obs ~ N_obs_lag +', paste0('U.V', 1:(nlags+1), collapse = ' + ')))
 
   return(f)
 }
 
 
-model_effects <- function( df, lags ){ 
+model_effects <- function( df, nlags ){ 
   
-  f <-  model_formula(lags = lags )
+  f <-  model_formula(nlags = nlags )
 
   m1 <- coef(summary(lm(data = df, formula = f[[1]]))) # without observation error 
   
@@ -143,29 +143,32 @@ A = 1 # gompertz intercept
 B = 0.5 # gompertz slope 
 
 ### These are the critical factors: ########
-C = c(-0.5, -0.2)  #### climate effect in order of lags starting at zero 
+C = c(-0.3, 0, 0)  #### climate effects [ lag 0 , lag 1, lag 2, ... etc. ]
 
-nlags <- length(C)
+nlags <- length(C) - 1 
 ############################################
 
 var_clim <- 1   ## annual climate variation 
 
-sigma_p <- 0.1  ## "proccess" error 
+sigma_p <- 0.3  ## "proccess" error 
 sigma_o <- 1    ## base observation error                               
-sigma_o_factor <- seq(0, 1, length.out = 10) ## observation error above is multiplied by this increasing factor 
+sigma_o_factor <- seq(0, 1, length.out = 20) ## observation error above is multiplied by this increasing factor 
 
 ################# RUN SIMULATIONS ###################################
 
-# run several simulations at various observation error levels 
-# keep results in a list and then plot 
+# run one simulation  
+# add simulated observation error with each level of observation error 
+# a seperate dataframe in a list 
 
-df <- run_simulation(burnTime = burnTime, time = time, pop_init = pop_init, A = A, B = B, C = C, sigma_p = sigma_p, sigma_o = sigma_o, var_clim = var_clim, nlags = 1)
+df <- run_simulation(burnTime = burnTime, time = time, pop_init = pop_init, A = A, B = B, C = C, sigma_p = sigma_p, sigma_o = sigma_o, var_clim = var_clim, nlags = nlags)
 
 test_df_list <- lapply( X = sigma_o_factor, function( x ) { add_observation_error( df, sigma_o_factor = x) } )
 
 test_df_list <- lapply( X = test_df_list, lag_population)
 
-results_list <- lapply ( test_df_list , model_effects )  
+results_list <- lapply ( test_df_list , function(x, nlags ) model_effects ( x, nlags = nlags), nlags = nlags)  
+
+results_list[[1]]
 
 set_values = c(A, B, C)
 
@@ -198,12 +201,12 @@ result_plot <- ggplot(results, aes( x = `observation error factor`, y = Estimate
   geom_hline( aes( yintercept = set_values)) + 
   geom_point() + 
   geom_errorbar() + 
-  facet_wrap(~ parameter_labels, nrow = 2 ) 
+  facet_wrap(~ parameter_labels, nrow = nlags + 1) 
 
 bias_plot <- ggplot(results, aes( x = `observation error factor`, y = bias, color = `with observation error`, ymax = bias + Std..Error, ymin = bias - Std..Error)) + 
   geom_errorbar() + 
   geom_point() + 
-  facet_wrap( ~ parameter_labels, nrow = 2)
+  facet_wrap( ~ parameter_labels, nrow = nlags + 1)
 
 png( 'figs/gompertz_lag_effects_parameter_estimates.png', width = 6, height = 6, units = 'in', res = 300)
 print(result_plot) 
@@ -235,6 +238,5 @@ U <- unique(U )
 U$year <- unique( all_test_df$year) 
 
 U <- reshape( U, varying = list(1:(length(U)-1)), v.names = 'climate', timevar = 'lag', times = paste0('lag_', 0:(length(U)-2)), direction = 'long')
-
 ggplot( subset( U, year < 150 ), aes( x = year, y = climate, color = lag)) + geom_point() + geom_line()
 
