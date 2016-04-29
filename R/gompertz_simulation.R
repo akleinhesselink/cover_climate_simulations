@@ -102,7 +102,9 @@ model_effects <- function( df ){
 } 
 
 
-#### parameters ----------------------------------
+##########################################################
+############## SET PARAMETERS ############################ 
+
 obsTime = 10000
 burnTime = 100
 
@@ -112,19 +114,18 @@ pop_init = 100
 A = 0.8 # gompertz intercept
 B = 0.5 # gompertz slope 
 
-#################################################
-### These are the critical factors: 
 
-C1 =  0 ############## climate lag effect
-C2 = -1 ############### climate effect current year  
+### These are the critical factors: ########
+C1 =  1 #### climate lag effect
+C2 = -1 #### climate effect current year  
+############################################
 
+var_clim <- 1   ## annual climate variation 
 
-#################################################
+E <- 0.4                              ## "proccess" error 
+OE_list <- seq(0, 1, length.out = 10) ## observation error is a sequence of values to test effect of increasing error
 
-var_clim <- 1 ### annual climate variation 
-
-E <- 0.4 ################ "proccess" error 
-OE_list <- seq(0, 1, length.out = 10) ######## observation error 
+################# RUN SIMULATIONS ###################################
 
 # run several simulations at various observation error levels 
 # keep results in a list and then plot 
@@ -143,10 +144,15 @@ for( i in 1:length(OE_list)) {
 }
 
 results <- do.call( rbind, results_list) 
+
+######## change labels just for plotting ###########
 results$`with observation error` <- results$OE
 results$`observation error` <- results$E_obs
 results$parameter <- results$pars
 results$parameter_labels <- factor( results$parameter , labels = c('clim','clim_lag',  'Gompertz "a"', 'Gompertz "b"'))
+
+
+############## main results figure ###################################
 
 result_plot <- ggplot(results, aes( x = `observation error`, y = Estimate, color = `with observation error`, ymax = Estimate + Std..Error, ymin = Estimate - Std..Error   ) ) + 
   geom_hline( aes( yintercept = set_values)) + 
@@ -155,6 +161,7 @@ result_plot <- ggplot(results, aes( x = `observation error`, y = Estimate, color
   scale_color_discrete( ) + 
   facet_wrap(~ parameter_labels, nrow = 2 ) + 
   ylim( c(-1.5, 1.5))
+
 
 result_plot
 
