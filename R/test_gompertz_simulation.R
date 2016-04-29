@@ -97,6 +97,8 @@ results_list[[1]]
 
 ##### simple linear model 
 ##### estimate parameters 
+model_list <- list()
+
 for (i in 1:length(results_list)) { 
   m1 = lmer( population ~  popLag + (popLag|site) + clim1 + clim2 + clim1:M1 + clim2:M1, data = results_list[[i]])
   model_list[[i]] <- m1
@@ -112,7 +114,6 @@ coeffs$EV <- sort( rep(EV, length(fixef(model_list[[1]]))) )
 head( coeffs)
 
 coeffs$true_value = c(m_A, m_B, C1, C2, C3, C4 )
-
 
 ggplot( data = subset( coeffs, fixef %in% c('clim1', 'clim1:M1', 'clim2', 'clim2:M1')), aes( x = EV, y = Estimate, color = fixef )) + 
   geom_point() +  
