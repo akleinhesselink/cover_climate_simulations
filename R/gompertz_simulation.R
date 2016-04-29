@@ -49,10 +49,10 @@ sim_climate <- function( time, var_clim, ... ){
 }
 
 
-sim_time_series <- function(popDF, E1, time, X, A, B, C1, C2, C3, C4, M1 ){ 
+sim_time_series <- function(popDF, E, time, X, A, B, C1, C2, C3, C4, M1, E_obs ){ 
   
   for( i in 2:time) { 
-    E = rnorm(1, 0, E1)
+    Z = rnorm(1, 0, E)
     popDF$population[i] = logGompertz(X = popDF$population[i-1], 
                                       A = A, 
                                       B = B, 
@@ -60,7 +60,7 @@ sim_time_series <- function(popDF, E1, time, X, A, B, C1, C2, C3, C4, M1 ){
                                       C1 = C1, 
                                       U2 = popDF$clim[i], 
                                       U1 = popDF$clim_lag[i], 
-                                      E = E)
+                                      E = Z)
   }
   OE <- rnorm(nrow( popDF), 0, E_obs)
   popDF$population_obs <- popDF$population + OE
@@ -68,7 +68,7 @@ sim_time_series <- function(popDF, E1, time, X, A, B, C1, C2, C3, C4, M1 ){
 }
 
 
-run_simulation <- function( burnTime, time, pop_init, A, B, C1, C2, E, E_obs, ... ) { 
+run_simulation <- function( burnTime = burnTime, time = time, pop_init = pop_init, A = A, B = B, C1 = C1, C2 = C2, E = E, E_obs = E_obs, ... ) { 
   pop = rep(NA, time + 1)
   
   ##### population data  
@@ -79,11 +79,9 @@ run_simulation <- function( burnTime, time, pop_init, A, B, C1, C2, E, E_obs, ..
   empty = data.frame( population = N, climate) 
   
   ##### Simulate data 
-  pop_series <- sim_time_series(empty, E = E, time = time, A = A, B = B, C2 = C2, C1 = C1)
+  pop_series <- sim_time_series(empty, E = E, time = time, A = A, B = B, C2 = C2, C1 = C1, E_obs = E_obs)
 
   pop_DF <- make_pop_df( pop_series = pop_series )
-  
-  OE <- rnorm(nrow(pop_DF), 0, E_obs )
   
   pop_DF <- pop_DF[ -c(1:burnTime), ]
   return(pop_DF)
@@ -91,8 +89,11 @@ run_simulation <- function( burnTime, time, pop_init, A, B, C1, C2, E, E_obs, ..
 
 
 model_effects <- function( df ){ 
-  m1 <- coef(summary(lm(data = df, population ~ popLag + clim_lag + clim)))
-  m1_OE <- coef(summary(lm(data = df, population_obs ~ popLag_obs + clim_lag + clim)))
+
+  m1 <- coef(summary(lm(data = df, population ~ popLag + clim + clim_lag))) # without observation error 
+  
+  m1_OE <- coef(summary(lm(data = df, population_obs ~ popLag_obs + clim + clim_lag))) # with observation error 
+  
   npars <- nrow(m1)  
   pars <- row.names(m1)
   m1 <-  data.frame( OE = FALSE, pars = pars, m1  )
@@ -101,64 +102,80 @@ model_effects <- function( df ){
 } 
 
 
-#### parameters 
-obsTime = 1000
+#### parameters ----------------------------------
+obsTime = 10000
 burnTime = 100
 
 time = obsTime + burnTime
 pop_init = 100 
 
-A = 0.8
-B = 0.5
+A = 0.8 # gompertz intercept
+B = 0.5 # gompertz slope 
 
-C2 = -1 # climate effect current year  
-C1 = 0 # climate lag effect
+#################################################
+### These are the critical factors: 
 
-var_clim <- 1
+C1 =  0 ############## climate lag effect
+C2 = -1 ############### climate effect current year  
 
-E <- 0.4 # proccess error 
-E_obs <- seq(0.01, 1, length.out = 10) # observation error 
+
+#################################################
+
+var_clim <- 1 ### annual climate variation 
+
+E <- 0.4 ################ "proccess" error 
+OE_list <- seq(0, 1, length.out = 10) ######## observation error 
 
 # run several simulations at various observation error levels 
 # keep results in a list and then plot 
 
-test_df_list  <- lapply(E_obs , FUN = function(x ) { run_simulation( burnTime, time, pop_init, A, B, C1, C2, E, E_obs = x) } )  
+test_df_list  <- lapply(X = OE_list , FUN = function(x ) { run_simulation( burnTime, time, pop_init, A, B, C1 = C1, C2 = C2, E, E_obs = x) } )  
 
-results_list <- lapply ( test_df_list , model_effects ) 
+results_list <- lapply ( test_df_list , model_effects )  
 
-set_values = c(A, B, C1, C2)
+results_list[[1]]
 
-for( i in 1:length(E_obs)) { 
+set_values = c(A, B, C2, C1)
+
+for( i in 1:length(OE_list)) { 
   results_list[[i]]$set_values <- set_values 
-  results_list[[i]]$E_obs <- E_obs[i] 
+  results_list[[i]]$E_obs <- OE_list[i] 
 }
 
 results <- do.call( rbind, results_list) 
 results$`with observation error` <- results$OE
 results$`observation error` <- results$E_obs
 results$parameter <- results$pars
+results$parameter_labels <- factor( results$parameter , labels = c('clim','clim_lag',  'Gompertz "a"', 'Gompertz "b"'))
 
-example_ts <- test_df_list[[length(E_obs)]][ 1:50 , ]
-example_ts <- example_ts[ , c('year', 'population', 'population_obs' )]
-
-example_ts <- reshape( example_ts, varying = c('population' , 'population_obs'), v.names = 'pop_size', timevar = 'type', times = c('actual', 'observed'), direction = 'long')
-
-
-head( sim_climate(time = time, var_clim = var_clim ) ) 
-
-ggplot( example_ts, aes( x = year, y = pop_size , color = type ) ) + 
-  geom_point() + 
-  geom_line() + 
-  ggtitle(paste0( 'Actual vs. observed pop size with observation error =', round( E_obs[ length(E_obs) ] ) , 2) ) 
-
-
-ggplot( subset( results, pars %in% c('clim', 'clim_lag') ), aes( x = `observation error`, y = Estimate, shape = parameter, color = `with observation error`, ymax = Estimate + Std..Error, ymin = Estimate - Std..Error   ) ) + 
+result_plot <- ggplot(results, aes( x = `observation error`, y = Estimate, color = `with observation error`, ymax = Estimate + Std..Error, ymin = Estimate - Std..Error   ) ) + 
   geom_hline( aes( yintercept = set_values)) + 
   geom_point() + 
   geom_errorbar() + 
-  ylab( 'Effect estimate') + 
   scale_color_discrete( ) + 
-  facet_wrap(~ parameter )
+  facet_wrap(~ parameter_labels, nrow = 2 ) + 
+  ylim( c(-1.5, 1.5))
 
+result_plot
 
+png( 'figs/gompertz_lag_effects.png', width = 6, height = 6, units = 'in', res = 300)
+
+print(result_plot) 
+
+dev.off()
   
+######### plot example time series -------------------------------------- 
+
+for( i in 1:length(OE_list)) { 
+  test_df_list[[i]]$`observation_error` <- paste0 ( 'Obs. error = ', round ( OE_list[i], 2 ) ) 
+} 
+
+all_test_df <- do.call( rbind, test_df_list ) 
+
+example_ts <-reshape( all_test_df, varying = c('population' , 'population_obs'), v.names = 'pop_size', timevar = 'type', times = c('actual', 'observed'), direction = 'long') 
+
+ggplot( subset(example_ts, year < 150), aes( x = year, y = pop_size , color = type ) ) + 
+  geom_point() + 
+  geom_line() + 
+  facet_wrap(~ observation_error, nrow = 5) 
+
