@@ -3,6 +3,7 @@ rm(list = ls() )
 library(lme4)
 library(ggplot2)
 library(mvtnorm)
+library(dplyr) # need for "lag" function 
 source('R/functions.R')
 
 # functions -----------------------------------------------------------------
@@ -23,17 +24,6 @@ logGompertz = function( X, A, B, E, C, U) {
 
 } 
 
-make_pop_df <- function(time, N, U, sigma_o ) { 
-  OE <- rnorm( length(N), 0, sigma_o ) 
-  
-  pop_df = data.frame(
-    year = 1:time, 
-    U = U[-nrow(U), ],
-    N = N, 
-    OE = OE 
-  )
-  return( pop_df )
-}
 
 initialize_population <- function(pop_init, time){ 
   
@@ -69,6 +59,18 @@ sim_time_series <- function(N, sigma_p, time, A, B, C, U, nlags){
                        E = E)
   }
   return( N ) 
+}
+
+make_pop_df <- function(time, N, U, sigma_o ) { 
+  OE <- rnorm( length(N), 0, sigma_o ) 
+  
+  pop_df = data.frame(
+    year = 1:time, 
+    U = U[-nrow(U), ],
+    N = N, 
+    OE = OE 
+  )
+  return( pop_df )
 }
 
 run_simulation <- function( burnTime = burnTime, time = time, pop_init = pop_init, A = A, B = B, C = C, sigma_p = sigma_p, sigma_o = sigma_o, var_clim= var_clim, nlags =1 ) { 
@@ -128,6 +130,13 @@ lag_population <- function(df ) {
   return(df)
 }
 
+make_par_labs <- function( x ) { 
+  l <- levels(x)
+  l[ 1:2 ] <- c('a', 'b')
+  lag_labels <- paste('lag', 0:(length(l)-3 ))
+  l[ -c(1:2) ] <- lag_labels
+  return(l)
+}
 
 
 ##########################################################
@@ -143,16 +152,16 @@ A = 1 # gompertz intercept
 B = 0.5 # gompertz slope 
 
 ### These are the critical factors: ########
-C = c(-0.3, 0, 0)  #### climate effects [ lag 0 , lag 1, lag 2, ... etc. ]
+C = c(-0.5, 0, 0)  #### climate effects [ lag 0 , lag 1, lag 2, ... etc. ]
 
 nlags <- length(C) - 1 
 ############################################
 
 var_clim <- 1   ## annual climate variation 
 
-sigma_p <- 0.3  ## "proccess" error 
+sigma_p <- 0.8  ## "proccess" error 
 sigma_o <- 1    ## base observation error                               
-sigma_o_factor <- seq(0, 1, length.out = 20) ## observation error above is multiplied by this increasing factor 
+sigma_o_factor <- seq(0, 4, length.out = 20) ## observation error above is multiplied by this increasing factor 
 
 ################# RUN SIMULATIONS ###################################
 
@@ -165,6 +174,10 @@ df <- run_simulation(burnTime = burnTime, time = time, pop_init = pop_init, A = 
 test_df_list <- lapply( X = sigma_o_factor, function( x ) { add_observation_error( df, sigma_o_factor = x) } )
 
 test_df_list <- lapply( X = test_df_list, lag_population)
+
+head( test_df_list[[4]] )
+
+
 
 results_list <- lapply ( test_df_list , function(x, nlags ) model_effects ( x, nlags = nlags), nlags = nlags)  
 
@@ -179,15 +192,6 @@ for( i in 1:length(sigma_o_factor)) {
 
 results <- do.call( rbind, results_list) 
 results$bias = results$Estimate - results$set_values
-
-make_par_labs <- function( x ) { 
-  l <- levels(x)
-  l[ 1:2 ] <- c('a', 'b')
-  lag_labels <- paste('lag', 0:(length(l)-3 ))
-  l[ -c(1:2) ] <- lag_labels
-  return(l)
-}
-
 
 ######## change labels just for plotting ###########
 results$`with observation error` <- results$Obs_E
@@ -207,6 +211,10 @@ bias_plot <- ggplot(results, aes( x = `observation error factor`, y = bias, colo
   geom_errorbar() + 
   geom_point() + 
   facet_wrap( ~ parameter_labels, nrow = nlags + 1)
+
+result_plot 
+
+bias_plot 
 
 png( 'figs/gompertz_lag_effects_parameter_estimates.png', width = 6, height = 6, units = 'in', res = 300)
 print(result_plot) 
